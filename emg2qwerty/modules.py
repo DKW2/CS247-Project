@@ -278,3 +278,48 @@ class TDSConvEncoder(nn.Module):
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         return self.tds_conv_blocks(inputs)  # (T, N, num_features)
+
+class TDSRecurrentEncoder(nn.Module):
+    """An encoder that can accept a RNN, LSTM, or GRU 
+
+    Args:
+        num_features (int): ``num_features`` for an input of shape
+            (T, N, num_features).
+        block_channels (list): A list of integers indicating the number
+            of channels per `TDSConv2dBlock`.
+        kernel_width (int): The kernel size of the temporal convolutions.
+    """
+
+    def __init__(
+        self,
+        model_type: str,
+        num_features: int,
+        hidden_features: int,
+        num_layers: int,
+        bidirectional: bool
+    ) -> None:
+        super().__init__()
+
+        if( model_type == "rnn" ):
+            self.recurrent_layer = nn.RNN(
+                num_features, hidden_features, num_layers, bidirectional = bidirectional
+            )
+        elif( model_type == "lstm" ):
+            self.recurrent_layer = nn.LSTM(
+                num_features, hidden_features, num_layers, bidirectional = bidirectional
+            )
+        else:
+            self.recurrent_layer = nn.GRU(
+                num_features, hidden_features, num_layers, bidirectional = bidirectional
+            )
+
+        after_recurrent_features = hidden_features * 2 if bidirectional else hidden_features
+        self.fc_layer = TDSFullyConnectedBlock( after_recurrent_features )
+        self.out_layer = nn.Linear( after_recurrent_features, num_features )
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        # Input: (T, N, num_features)
+        x, _ = self.recurrent_layer( inputs ) # Output: (T, N, hidden_dim * 2 if bidirectional)
+        x = self.fc_layer( x ) # Output (T, N, hidden_dim * 2 if bidirectional)
+        x = self.out_layer( x ) # Output (T, N, num_features)
+        return x  # (T, N, num_features)
