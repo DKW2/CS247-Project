@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import hydra
+import torch
 import pytorch_lightning as pl
 from hydra.utils import get_original_cwd, instantiate
 from omegaconf import DictConfig, ListConfig, OmegaConf
@@ -113,8 +114,13 @@ def main(config: DictConfig):
 
     # Validate and test on the best checkpoint (if training), or on the
     # loaded `config.checkpoint` (otherwise)
-    val_metrics = trainer.validate(module, datamodule)
-    test_metrics = trainer.test(module, datamodule)
+    val_metrics = {}
+    test_metrics = {}
+    if config.validate:
+        val_metrics = trainer.validate(module, datamodule)
+    # torch.no_grad()
+    else:
+        test_metrics = trainer.test(module, datamodule)
 
     results = {
         "val_metrics": val_metrics,

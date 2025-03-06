@@ -296,21 +296,22 @@ class TDSRecurrentEncoder(nn.Module):
         num_features: int,
         hidden_features: int,
         num_layers: int,
-        bidirectional: bool
+        bidirectional: bool,
+        dropout: float
     ) -> None:
         super().__init__()
 
         if( model_type == "rnn" ):
             self.recurrent_layer = nn.RNN(
-                num_features, hidden_features, num_layers, bidirectional = bidirectional
+                num_features, hidden_features, num_layers, dropout = dropout, bidirectional = bidirectional
             )
         elif( model_type == "lstm" ):
             self.recurrent_layer = nn.LSTM(
-                num_features, hidden_features, num_layers, bidirectional = bidirectional
+                num_features, hidden_features, num_layers, dropout = dropout, bidirectional = bidirectional
             )
         else:
             self.recurrent_layer = nn.GRU(
-                num_features, hidden_features, num_layers, bidirectional = bidirectional
+                num_features, hidden_features, num_layers, dropout = dropout, bidirectional = bidirectional
             )
 
         after_recurrent_features = hidden_features * 2 if bidirectional else hidden_features
@@ -322,4 +323,37 @@ class TDSRecurrentEncoder(nn.Module):
         x, _ = self.recurrent_layer( inputs ) # Output: (T, N, hidden_dim * 2 if bidirectional)
         x = self.fc_layer( x ) # Output (T, N, hidden_dim * 2 if bidirectional)
         x = self.out_layer( x ) # Output (T, N, num_features)
+        return x  # (T, N, num_features)
+
+class TDSTransformerEncoder(nn.Module):
+    def __init__(
+        self,
+        num_features: int,
+        n_head: int,
+        dim_feedforward: int,
+        dropout: float,
+        num_layers: int,
+        shrink: bool,
+        shrink_dim: int
+    ) -> None:
+        super().__init__()
+
+        h_dim = shrink_dim if shrink else num_features
+        self.shrink = shrink
+        if( shrink ):
+            self.shrink_layer = nn.Linear( num_features, h_dim )
+        encoder_layer = nn.TransformerEncoderLayer(d_model=h_dim, nhead=n_head, dropout = dropout, dim_feedforward = dim_feedforward)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
+        self.fc_layer = TDSFullyConnectedBlock( h_dim )
+        self.out_layer = nn.Linear( h_dim, num_features )
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        # Input: (T, N, num_features)
+        x = inputs
+        if( self.shrink ):
+            x = self.shrink_layer( x )
+        x = self.transformer( x ) # Output: (T, N, num_features)
+        x = self.fc_layer( x ) # Output (T, N, num_features)
+        x = self.out_layer( x )
         return x  # (T, N, num_features)

@@ -1,13 +1,14 @@
 # @package _global_
 module:
-  _target_: emg2qwerty.lightning.TDSRecurrentModule
+  _target_: emg2qwerty.lightning.TDSTransformerModule
   in_features: 528  # freq * channels = (n_fft // 2 + 1) * 16
   mlp_features: [384]
-  model_type: "gru" # Can be LSTM, RNN, or default GRU
-  hidden_features: 64
-  num_layers: 5
-  bidirectional: True
-  dropout: 0.3
+  dim_feedforward: 128
+  n_head: 1
+  dropout: 0.1
+  num_layers: 1
+  shrink: True
+  shrink_dim: 512
 
 datamodule:
   _target_: emg2qwerty.lightning.WindowedEMGDataModule
