@@ -411,6 +411,11 @@ class TDSRecurrentModule(pl.LightningModule):
             optimizer_config=self.hparams.optimizer,
             lr_scheduler_config=self.hparams.lr_scheduler,
         )
+        
+    def on_before_optimizer_step(self, optimizer, optimizer_idx):
+        """gradient clipping"""
+        max_norm = 5.0
+        torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm)
 
 class TDSTransformerModule(pl.LightningModule):
     NUM_BANDS: ClassVar[int] = 2
